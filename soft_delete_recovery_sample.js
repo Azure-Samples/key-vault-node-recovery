@@ -99,7 +99,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
         var self = this;
         var vaultName = vault.name;
         var vaultLocation = vault.location;
-
+        
         return self.performOpAndWaitForCompletion(
             () => self.KeyVaultManagementClient.vaults.deleteMethod(resourceGroup, vaultName),
             () => self.KeyVaultManagementClient.vaults.getDeleted(vaultName, vaultLocation));
@@ -159,7 +159,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
         var vaultName = self._getName('vault');
 
         var keyVaultParameters = {
-            location: self._config.location,
+            location: self._config.azureLocation,
             properties: {
                 sku: {
                     name: 'standard'
@@ -167,7 +167,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
                 accessPolicies: [
                     {
                         tenantId: self._config.tenantId,
-                        objectId: self._config.clientOid,
+                        objectId: self._config.objectId,
                         permissions: {
                             keys: KeyPermissions,
                             secrets: SecretPermissions,
@@ -188,7 +188,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
 
 
         console.log('\nCreating soft delete enabled vault: ' + vaultName);
-        var vault = await self.KeyVaultManagementClient.vaults.createOrUpdate(self._config.resourceGroupName, vaultName, keyVaultParameters);
+        var vault = await self.KeyVaultManagementClient.vaults.createOrUpdate(self._config.groupName, vaultName, keyVaultParameters);
         console.log('Vault ' + vaultName + ' created enableSoftDelete=' + vault.properties.enableSoftDelete);
         return vault;
     }
@@ -204,7 +204,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
         // NOTE: This value should only be undefined or true, setting the value to false will cause a service validation error
         //       once soft delete has been enabled on the vault it cannot be disabled
         sampleVault.properties.enableSoftDelete = true
-        await self.KeyVaultManagementClient.vaults.createOrUpdate(self._config.resourceGroupName, sampleVault.name, sampleVault.properties);
+        await self.KeyVaultManagementClient.vaults.createOrUpdate(self._config.groupName, sampleVault.name, sampleVault.properties);
         console.log('Updated vault ' + sampleVault.name + ' enableSoftDelete=' + sampleVault.properties.enableSoftDelete);
     }
 
@@ -220,8 +220,8 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
         console.log('Soft deleting two vaults: ' + self.vaultToRecover.name + ', ' + self.vaultToPurge.name);
 
         var vaultDeletePromises = [];
-        vaultDeletePromises.push( self.deleteVault(self._config.resourceGroupName, self.vaultToRecover) );
-        vaultDeletePromises.push( self.deleteVault(self._config.resourceGroupName, self.vaultToPurge) );
+        vaultDeletePromises.push( self.deleteVault(self._config.groupName, self.vaultToRecover) );
+        vaultDeletePromises.push( self.deleteVault(self._config.groupName, self.vaultToPurge) );
         await Promise.all(vaultDeletePromises);
 
         //
@@ -245,7 +245,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
         console.log('Retrieving details of deleted vault ' + self.vaultToRecover.name);
         var deletedVault = await self.getDeletedVault(self.vaultToRecover.name, self.vaultToRecover.location)
         console.log(self._prettyPrintJson(deletedVault) + '\n');
-        await self.recoverVault(deletedVault, self._config.resourceGroupName, self._config.tenantId);
+        await self.recoverVault(deletedVault, self._config.groupName, self._config.tenantId);
 
         //
         // Demonstrate purging a vault.
@@ -323,7 +323,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
 
     async _deleteVaults(vaults) {
         var self = this;
-        return Promise.all(vaults.map( vault => self.deleteVault(self._config.resourceGroupName, vault) ));
+        return Promise.all(vaults.map( vault => self.deleteVault(self._config.groupName, vault) ));
     }
 
     async _listSampleDeletedVaults() {

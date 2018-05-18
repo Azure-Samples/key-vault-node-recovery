@@ -7,18 +7,23 @@
 'use strict;'
 
 const util = require('util');
-
-const request = require('request-promise-native');
-
 const msRestAzure = require('ms-rest-azure');
 const ResourceManagementClient = require('azure-arm-resource').ResourceManagementClient;
 const KeyVaultManagementClient = require('azure-arm-keyvault');
 const KeyVault = require('azure-keyvault');
 const AuthenticationContext = require('adal-node').AuthenticationContext;
 
-var fileConfig = require('./key_vault_sample_config.json');
+// Validate env variables
+var envs = [];
+if (!process.env['AZURE_SUBSCRIPTION_ID']) envs.push('AZURE_SUBSCRIPTION_ID');
+if (!process.env['AZURE_TENANT_ID']) envs.push('AZURE_TENANT_ID');
+if (!process.env['AZURE_CLIENT_ID']) envs.push('AZURE_CLIENT_ID');
+if (!process.env['AZURE_CLIENT_OID']) envs.push('AZURE_CLIENT_OID');
+if (!process.env['AZURE_CLIENT_SECRET']) envs.push('AZURE_CLIENT_SECRET');
 
-const AZURE_CLI_CLIENTID = '04b07795-8ddb-461a-bbee-02f9e1bf7b46';
+if (envs.length > 0) {
+    throw new Error(util.format('please set/export the following environment variables: %s', envs.toString()));
+}
 
 function rand(min, max) {
     return Math.floor(Math.random() * (max - min) + min);
@@ -68,143 +73,24 @@ class ServicePrincipalAuthenticator {
     }
 }
 
-class UserAuthenticator {
-    constructor(tenantId) {
-        this._tenantId = tenantId;
-        this._authContext = null;
-    }
-
-    _acquireUserCode(resource) {
-        var self = this;
-        var acquireUserCodePromise = util.promisify( (callback) => {
-            self._authContext.acquireUserCode(resource, AZURE_CLI_CLIENTID, null, callback);
-        });
-        return acquireUserCodePromise();
-    }
-
-    _acquireTokenWithDeviceCode(resource, userCodeInfo) {
-        var self = this;
-        var acquireTokenWithDeviceCodePromise = util.promisify( (callback) => {
-            self._authContext.acquireTokenWithDeviceCode(resource, AZURE_CLI_CLIENTID, userCodeInfo, callback);
-        });
-        return acquireTokenWithDeviceCodePromise();
-    }
-
-    _getTokenFromADALCache(resource, clientId) {
-        var self = this;
-        var acquireTokenPromise =  util.promisify( (callback) => {
-            self._authContext.acquireToken(resource, null, clientId, callback);
-        });
-        return acquireTokenPromise();
-    }
-
-    _acquireUserToken(authorization, resource) {
-        var self = this;
-        if (!self._authContext) {
-            self._authContext = new AuthenticationContext(authorization);
-        }
-
-        // Start with the cache
-        return self._getTokenFromADALCache(resource, AZURE_CLI_CLIENTID)
-        .then( (tokenResponse) => {
-            return tokenResponse;
-        })
-        .catch( (err) => {
-            // There is no token in the cache so do an interactive login.
-            return self._acquireUserCode(resource)
-            .then( (userCodeInfo) => {
-                console.log(userCodeInfo.message);
-                return self._acquireTokenWithDeviceCode(resource, userCodeInfo);
-            });
-        })
-    }
-
-    getKeyVaultCredentials() {
-        var self = this;
-
-        var credentials = new KeyVault.KeyVaultCredentials( (challenge, callback) => {
-            self._acquireUserToken(challenge.authorization, challenge.resource)
-            .then( (tokenResponse) => {
-                // Calculate the value to be set in the request's Authorization header and resume the call.
-                var authorizationValue = tokenResponse.tokenType + ' ' + tokenResponse.accessToken;
-
-                callback(null, authorizationValue);
-            })
-            .catch( err => callback(err) );
-        })
-
-        return credentials;
-    }
-
-    getMe() {
-        var self = this;
-
-        var authorization = 'https://login.microsoftonline.com/' + self._tenantId + '/oauth2/authorize';
-        var resource = 'https://graph.windows.net';
-
-        return self._acquireUserToken(authorization, resource)
-        .then( (tokenResponse) => {
-            var options = {
-                uri: 'https://graph.windows.net/' + self._tenantId + '/me',
-                qs: {
-                    'api-version': '1.6'
-                },
-                headers: {
-                    'Authorization': 'Bearer ' + tokenResponse.accessToken
-                },
-                json: true // Automatically parses the JSON string in the response
-            };
-            return request(options);
-        });
-    }
-
-    getUserOid() {
-        var self = this;
-
-        return self.getMe()
-        .then( (me) => { return me.objectId; } );
-    }
-}
-
 class KeyVaultSampleBase {
     constructor() {
         this._config = this._loadConfig();
-
-        this._servicePrincipalAuthenticator =
-            new ServicePrincipalAuthenticator(this._config.tenantId, this._config.clientId, this._config.clientSecret);
-        this._userAuthenticator = new UserAuthenticator(this._config.tenantId);
-
-        this.KeyVaultClient = null;
-        this.UserKeyVaultClient = null;
-        this.KeyVaultManagementClient = null;
-        this.ResourceManagementClient = null;
-        this._setup_complete = false;
+        this._servicePrincipalAuthenticator = new ServicePrincipalAuthenticator(this._config.tenantId, this._config.clientId, this._config.secret);
     }
-
-    _loadConfigFromEnv() {
-        var config = {};
-        config.subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-        config.clientId = process.env.AZURE_CLIENT_ID;
-        config.clientOid = process.env.AZURE_CLIENT_OID;
-        config.tenantId = process.env.AZURE_TENANT_ID;
-        config.clientSecret = process.env.AZURE_CLIENT_SECRET;
-        config.location = process.env.AZURE_LOCATION;
-        config.resourceGroupName = process.env.AZURE_RESOURCE_GROUP;
-        config.storageResourceId = process.env.AZURE_STORAGE_RESOURCE_ID;
-
-        for(var property in config) {
-            if (!config[property]) {
-                return;
-            }
-         }
-         return config;
-   }
-
+    
     _loadConfig() {
-        var config = this._loadConfigFromEnv() || fileConfig;
-        if (!config) {
-            throw Error('Could not find sample configuration values.');
-        }
+        const config = {
+            // Service principal details for running the sample.
+            subscriptionId: process.env['AZURE_SUBSCRIPTION_ID'],
+            tenantId:       process.env['AZURE_TENANT_ID'],
+            clientId:       process.env['AZURE_CLIENT_ID'],
+            objectId:       process.env['AZURE_CLIENT_OID'],
+            secret:         process.env['AZURE_CLIENT_SECRET'],
+            azureLocation:  process.env['AZURE_LOCATION'] || 'westus',
+            groupName:      process.env['AZURE_RESOURCE_GROUP'] || 'azure-sample-group',
+        };
+        
         return config;
     }
 
@@ -242,9 +128,9 @@ class KeyVaultSampleBase {
         return name.replace(/-/g, '');
     }
 
-    _authenticate(authenticateAshUser) {
+    _authenticate() {
         var self = this;
-        return msRestAzure.loginWithServicePrincipalSecret(this._config.clientId, this._config.clientSecret, this._config.tenantId).then(
+        return msRestAzure.loginWithServicePrincipalSecret(this._config.clientId, this._config.secret, this._config.tenantId).then(
             (credentials) => {
                 self.ResourceManagementClient = new ResourceManagementClient(credentials, this._config.subscriptionId);
                 self.KeyVaultManagementClient = new KeyVaultManagementClient(credentials, this._config.subscriptionId);
@@ -252,25 +138,24 @@ class KeyVaultSampleBase {
                 // Service principal auth.
                 var kvCredentials = self._servicePrincipalAuthenticator.getKeyVaultCredentials();
                 self.KeyVaultClient = new KeyVault.KeyVaultClient(kvCredentials);
-
-                // User auth.
-                var kvUserCredentials = self._userAuthenticator.getKeyVaultCredentials();;
-                self.UserKeyVaultClient = new KeyVault.KeyVaultClient(kvUserCredentials);
-
-                // Call this to force user authentication up front.
-                if (authenticateAshUser) {
-                    return self._getUserOid();
-                }
             }
         );
     }
 
+    _prettyPrintJson(obj) {
+        return JSON.stringify(obj, null, 2);
+    }
+    
+    _sleep(ms) {
+        return new Promise( (resolve) => { setTimeout(resolve, ms); } );
+    }
+    
     _createVault() {
         var self = this;
         var vaultName = this._getName('vault');
 
         var keyVaultParameters = {
-            location: this._config.location,
+            location: this._config.azureLocation,
             properties: {
                 sku: {
                     name: 'standard'
@@ -278,7 +163,7 @@ class KeyVaultSampleBase {
                 accessPolicies: [
                     {
                         tenantId: this._config.tenantId,
-                        objectId: this._config.clientOid,
+                        objectId: this._config.objectId,
                         permissions: {
                             keys: KeyPermissions,
                             secrets: SecretPermissions,
@@ -293,39 +178,7 @@ class KeyVaultSampleBase {
         };
 
         console.log('\nCreating key vault: ' + vaultName);
-        return self.KeyVaultManagementClient.vaults.createOrUpdate(this._config.resourceGroupName, vaultName, keyVaultParameters);
-    }
-
-    _addUserToVaultPolicy(userOid, vault) {
-        var self = this;
-
-        var userPolicy = {
-            tenantId: this._config.tenantId,
-            objectId: userOid,
-            permissions: {
-                keys: KeyPermissions,
-                secrets: SecretPermissions,
-                certificates: CertificatePermissions,
-                storage: StoragePermissions
-            }
-        };
-
-        vault.properties.accessPolicies.push(userPolicy);
-        console.log('Adding user to vault: ' + vault.name + ' user oid: ' + userOid);
-        return self.KeyVaultManagementClient.vaults.createOrUpdate(this._config.resourceGroupName, vault.name, vault)
-    }
-
-    _getUserOid() {
-        var self = this;
-        return self._userAuthenticator.getUserOid();
-    }
-
-    _sleep(ms) {
-        return new Promise( (resolve) => { setTimeout(resolve, ms); } );
-    }
-
-    _prettyPrintJson(obj) {
-        return JSON.stringify(obj, null, 2);
+        return self.KeyVaultManagementClient.vaults.createOrUpdate(this._config.groupName, vaultName, keyVaultParameters);
     }
 }
 
