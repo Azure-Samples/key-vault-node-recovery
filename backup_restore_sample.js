@@ -113,8 +113,16 @@ class BackupRestoreSample extends KeyVaultSampleBase {
         var certificateName = self._getName('certificate');
         console.log('Creating certificate: ' + certificateName);
         var certificate = await self.KeyVaultClient.createCertificate(self._firstVault.properties.vaultUri, certificateName, certPolicyOptions);
-
         console.log('Created certificate ' + certificateName);
+        
+        var certOp = await self.KeyVaultClient.getCertificateOperation(self._firstVault.properties.vaultUri, certificateName, '');
+        
+        // wait for cert to actually be created
+        while( certOp.status == 'inProgress' ) {
+          certOp = await self.KeyVaultClient.getCertificateOperation(self._firstVault.properties.vaultUri, certificateName, '');
+          await self._sleep(1000);
+        }
+        
         console.log('Backing up certificate.');
         var certificateBackup = await self.KeyVaultClient.backupCertificate(self._firstVault.properties.vaultUri, certificateName);
 
