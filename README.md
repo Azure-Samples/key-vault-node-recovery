@@ -1,7 +1,11 @@
 ---
-services: key-vault
-platforms: nodejs
-author: lusitanian
+page_type: sample
+languages:
+- javascript
+products:
+- azure
+description: "This sample repo includes sample code demonstrating the soft delete, recovery and backup/restore features of Key Vault."
+urlFragment: key-vault-node-recovery
 ---
 
 # Recovery scenario samples for Azure Key Vault using the Azure Node SDK
