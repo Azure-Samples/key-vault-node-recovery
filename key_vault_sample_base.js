@@ -12,6 +12,10 @@ const msRestAzure = require('ms-rest-azure');
 const ResourceManagementClient = require('azure-arm-resource').ResourceManagementClient;
 const KeyVaultManagementClient = require('azure-arm-keyvault');
 const { DefaultAzureCredential } = require('@azure/identity');
+const { KeyClient } = require('@azure/keyvault-keys');
+const { SecretClient } = require('@azure/keyvault-secrets');
+const { CertificateClient } = require('@azure/keyvault-certificates');
+
 
 const AuthenticationContext = require('adal-node').AuthenticationContext;
 
@@ -113,6 +117,16 @@ class KeyVaultSampleBase {
                 self.credential = new DefaultAzureCredential();
             }
         );
+    }
+
+    _getKeyClient(vaultUrl, credential){
+        return new KeyClient(vaultUrl, credential);
+    }
+    _getSecretClient(vaultUrl, credential){
+        return new SecretClient(vaultUrl, credential);
+    }
+    _getCertificateClient(vaultUrl, credential){
+        return new CertificateClient(vaultUrl, credential);
     }
 
     _prettyPrintJson(obj) {

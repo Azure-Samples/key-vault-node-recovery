@@ -6,10 +6,6 @@
 'use strict;'
 
 const KeyVaultSampleBase = require('./key_vault_sample_base');
-const { KeyClient } = require("@azure/keyvault-keys");
-const { SecretClient } = require("@azure/keyvault-secrets");
-const { CertificateClient } = require("@azure/keyvault-certificates");
-
 
 class BackupRestoreSample extends KeyVaultSampleBase {
     async runSample() {
@@ -21,7 +17,7 @@ class BackupRestoreSample extends KeyVaultSampleBase {
         // Create two key vaults for sample purposes
         self._firstVault = await self._createVault();
         self._secondVault = await self._createVault();
-        
+
         // Run our individual backup and restore samples now that setup is complete
         await self.backupRestoreKey();
         await self.backupRestoreSecret();
@@ -35,7 +31,7 @@ class BackupRestoreSample extends KeyVaultSampleBase {
         console.log('  Key backup and restore sample.    ');
         console.log('************************************');
         var keyName = self._getName('key');
-        const vaultClientForBackup = new KeyClient(self._firstVault.properties.vaultUri, self.credential);
+        const vaultClientForBackup = self._getKeyClient(self._firstVault.properties.vaultUri, self.credential);
         var key = await vaultClientForBackup.createKey(keyName, 'RSA');
 
 
@@ -47,7 +43,7 @@ class BackupRestoreSample extends KeyVaultSampleBase {
         console.log('Backed up key ' + keyName);
 
 
-        const vaultClientForRestore = new KeyClient(self._secondVault.properties.vaultUri, self.credential);
+        const vaultClientForRestore = self._getKeyClient(self._secondVault.properties.vaultUri, self.credential);
         console.log('Restoring');
         var restored = await vaultClientForRestore.restoreKeyBackup(keyBackup)
         restored.name
@@ -68,7 +64,7 @@ class BackupRestoreSample extends KeyVaultSampleBase {
         console.log('************************************');
 
         var secretName = self._getName('secret');
-        const vaultClientForBackup = new SecretClient(self._firstVault.properties.vaultUri, self.credential);
+        const vaultClientForBackup = self._getSecretClient(self._firstVault.properties.vaultUri, self.credential);        
         var secret = await vaultClientForBackup.setSecret(secretName, 'AValue');
 
         console.log('Created secret: ' + secretName);
@@ -80,7 +76,7 @@ class BackupRestoreSample extends KeyVaultSampleBase {
         console.log('Backed up secret ' + secretName);
 
 
-        const vaultClientForRestore = new SecretClient(self._secondVault.properties.vaultUri, self.credential);
+        const vaultClientForRestore = self._getSecretClient(self._secondVault.properties.vaultUri, self.credential);
 
 
         console.log('Restoring.');
@@ -122,7 +118,7 @@ class BackupRestoreSample extends KeyVaultSampleBase {
 
 
         var certificateName = self._getName('certificate');
-        const vaultClientForBackup = new CertificateClient(self._firstVault.properties.vaultUri, self.credential);
+        const vaultClientForBackup = self._getCertificateClient(self._firstVault.properties.vaultUri, self.credential);
 
         console.log('Creating certificate: ' + certificateName);
         var certificate = await vaultClientForBackup.beginCreateCertificate(certificateName, certPolicyOptions);
@@ -141,8 +137,7 @@ class BackupRestoreSample extends KeyVaultSampleBase {
 
         console.log('Backed up certificate ' + certificateName);
 
-        const vaultClientForRestore = new CertificateClient(self._secondVault.properties.vaultUri, self.credential);
-
+        const vaultClientForRestore = self._getCertificateClient(self._secondVault.properties.vaultUri, self.credential);
 
         console.log('Restoring.');
         var restored = await vaultClientForRestore.restoreCertificateBackup(certificateBackup);
