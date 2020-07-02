@@ -18,6 +18,8 @@ class BackupRestoreSample extends KeyVaultSampleBase {
         self._firstVault = await self._createVault();
         self._secondVault = await self._createVault();
 
+        await self._getVaultClient(self._firstVault.properties.vaultUri, self._secondVault.properties.vaultUri);
+
         // Run our individual backup and restore samples now that setup is complete
         await self.backupRestoreKey();
         await self.backupRestoreSecret();
@@ -31,28 +33,24 @@ class BackupRestoreSample extends KeyVaultSampleBase {
         console.log('  Key backup and restore sample.    ');
         console.log('************************************');
         var keyName = self._getName('key');
-        const vaultClientForBackup = self._getKeyClient(self._firstVault.properties.vaultUri, self.credential);
-        var key = await vaultClientForBackup.createKey(keyName, 'RSA');
+        var key = await self.keyClientForBackup.createKey(keyName, 'RSA');
 
 
         console.log('Created key ' + keyName);
         console.log('Backing up key.');
-        var keyBackup = await vaultClientForBackup.backupKey(keyName);
+        var keyBackup = await self.keyClientForBackup.backupKey(keyName);
 
-        
         console.log('Backed up key ' + keyName);
 
-
-        const vaultClientForRestore = self._getKeyClient(self._secondVault.properties.vaultUri, self.credential);
         console.log('Restoring');
-        var restored = await vaultClientForRestore.restoreKeyBackup(keyBackup)
-        restored.name
+        var restored = await self.keyClientForRestore.restoreKeyBackup(keyBackup)
+
         console.log('Restored key ' + keyName);
-        var keys = await vaultClientForRestore.getKey(keyName);
+        var keys = await self.keyClientForRestore.listPropertiesOfKeys();
 
         console.log('Vault ' + self._secondVault.name +  ' keys:');
-        for(var i = 0; i < keys.length; i++) {
-            console.log('  kid: ' + keys[i].kid);
+        for await (const keyProperties of keys) {
+            console.log('  kid: ' + keyProperties.kid);
         }
     }
 
@@ -64,30 +62,24 @@ class BackupRestoreSample extends KeyVaultSampleBase {
         console.log('************************************');
 
         var secretName = self._getName('secret');
-        const vaultClientForBackup = self._getSecretClient(self._firstVault.properties.vaultUri, self.credential);        
-        var secret = await vaultClientForBackup.setSecret(secretName, 'AValue');
+        var secret = await self.secretClientForBackup.setSecret(secretName, 'AValue');
 
         console.log('Created secret: ' + secretName);
         console.log(secret);
         
         console.log('Backing up secret');
-        var secretBackup = await vaultClientForBackup.backupSecret(secretName);
+        var secretBackup = await self.secretClientForBackup.backupSecret(secretName);
         
         console.log('Backed up secret ' + secretName);
-
-
-        const vaultClientForRestore = self._getSecretClient(self._secondVault.properties.vaultUri, self.credential);
-
-
         console.log('Restoring.');
-        var restored = await vaultClientForRestore.restoreSecretBackup(secretBackup);
+        var restored = await self.secretClientForRestore.restoreSecretBackup(secretBackup);
 
         console.log('Restored secret ' + secretName);
-        var secrets = await vaultClientForRestore.getSecret(secretName);
+        var secrets = await self.secretClientForRestore.listPropertiesOfSecrets();
 
         console.log('Vault ' + self._secondVault.name +  ' secrets:');
-        for(var i = 0; i < secrets.length; i++) {
-            console.log('  Secret ID: ' + secrets[i].id);
+        for await (const secretProperties of secrets) {
+            console.log('  Secret ID: ' + secretProperties.id);
         }
     }
 
@@ -118,37 +110,34 @@ class BackupRestoreSample extends KeyVaultSampleBase {
 
 
         var certificateName = self._getName('certificate');
-        const vaultClientForBackup = self._getCertificateClient(self._firstVault.properties.vaultUri, self.credential);
-
         console.log('Creating certificate: ' + certificateName);
-        var certificate = await vaultClientForBackup.beginCreateCertificate(certificateName, certPolicyOptions);
+        var certificate = await self.certificateClientForBackup.beginCreateCertificate(certificateName, certPolicyOptions);
+        await certificate.pollUntilDone();
         console.log('Created certificate ' + certificateName);
         
-        var certOp = await vaultClientForBackup.getCertificateOperation(certificateName);
+        var certOp = await self.certificateClientForBackup.getCertificateOperation(certificateName);
         
         // wait for cert to actually be created
         while( certOp.status == 'inProgress' ) {
-          certOp = await vaultClientForBackup.getCertificateOperation(certificateName);
+          certOp = await self.certificateClientForBackup.getCertificateOperation(certificateName);
           await self._sleep(1000);
         }
         
         console.log('Backing up certificate.');
-        var certificateBackup = await vaultClientForBackup.backupCertificate(certificateName);
+        var certificateBackup = await self.certificateClientForBackup.backupCertificate(certificateName);
 
         console.log('Backed up certificate ' + certificateName);
 
-        const vaultClientForRestore = self._getCertificateClient(self._secondVault.properties.vaultUri, self.credential);
-
         console.log('Restoring.');
-        var restored = await vaultClientForRestore.restoreCertificateBackup(certificateBackup);
+        var restored = await self.certificateClientForRestore.restoreCertificateBackup(certificateBackup);
         console.log(restored);
         
         console.log('Restored certificate ' + certificateName);
-        var certificates = await vaultClientForRestore.getCertificate(certificateName);
+        var certificates = await self.certificateClientForRestore.listPropertiesOfCertificates();
 
         console.log('Vault ' + self._secondVault.name +  ' certificates:');
-        for(var i = 0; i < certificates.length; i++) {
-            console.log('  ID: ' + certificates[i].id);
+        for await (const certificateProperties of certificates) {
+            console.log('  ID: ' + certificateProperties.id);
         }
     }
 }

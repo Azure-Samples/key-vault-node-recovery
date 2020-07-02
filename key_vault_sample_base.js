@@ -119,14 +119,17 @@ class KeyVaultSampleBase {
         );
     }
 
-    _getKeyClient(vaultUrl, credential){
-        return new KeyClient(vaultUrl, credential);
+    _createVaultClient(vaultUrl){
+        var self = this;
+        const keyClient = new KeyClient(vaultUrl, self.credential);
+        const secretClient = new SecretClient(vaultUrl, self.credential);
+        const certificatesClient = new CertificateClient(vaultUrl, self.credential);
+        return [keyClient, secretClient, certificatesClient];
     }
-    _getSecretClient(vaultUrl, credential){
-        return new SecretClient(vaultUrl, credential);
-    }
-    _getCertificateClient(vaultUrl, credential){
-        return new CertificateClient(vaultUrl, credential);
+    _getVaultClient(backupVaultUrl, restoreVaultUrl){
+        var self = this;
+        [self.keyClientForBackup, self.secretClientForBackup, self.certificateClientForBackup] = self._createVaultClient(backupVaultUrl);
+        [self.keyClientForRestore, self.secretClientForRestore, self.certificateClientForRestore] = self._createVaultClient(restoreVaultUrl);
     }
 
     _prettyPrintJson(obj) {
