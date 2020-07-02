@@ -32,9 +32,10 @@ class BackupRestoreSample extends KeyVaultSampleBase {
         console.log('************************************');
         console.log('  Key backup and restore sample.    ');
         console.log('************************************');
+
+
         var keyName = self._getName('key');
         var key = await self.keyClientForBackup.createKey(keyName, 'RSA');
-
 
         console.log('Created key ' + keyName);
         console.log('Backing up key.');
