@@ -49,6 +49,9 @@ class ServicePrincipalAuthenticator {
      * @param {object}   challenge      Authentication parameters provided by Key Vault.
      * @param {function} callback       Callback function on completion.
      */
+    getKeyVaultCredentials(){
+        return new DefaultAzureCredential();
+    }
 }
 
 class KeyVaultSampleBase {
@@ -112,24 +115,20 @@ class KeyVaultSampleBase {
             (credentials) => {
                 self.ResourceManagementClient = new ResourceManagementClient(credentials, this._config.subscriptionId);
                 self.KeyVaultManagementClient = new KeyVaultManagementClient(credentials, this._config.subscriptionId);
-
-                // Service principal auth.
-                self.credential = new DefaultAzureCredential();
             }
         );
     }
 
-    _createVaultClient(vaultUrl){
-        var self = this;
-        const keyClient = new KeyClient(vaultUrl, self.credential);
-        const secretClient = new SecretClient(vaultUrl, self.credential);
-        const certificatesClient = new CertificateClient(vaultUrl, self.credential);
-        return [keyClient, secretClient, certificatesClient];
+    _getKeyClient(vaultUrl){
+        return new KeyClient(vaultUrl, this._servicePrincipalAuthenticator.getKeyVaultCredentials());
     }
-    _getVaultClient(backupVaultUrl, restoreVaultUrl){
-        var self = this;
-        [self.keyClientForBackup, self.secretClientForBackup, self.certificateClientForBackup] = self._createVaultClient(backupVaultUrl);
-        [self.keyClientForRestore, self.secretClientForRestore, self.certificateClientForRestore] = self._createVaultClient(restoreVaultUrl);
+
+    _getSecretClient(vaultUrl){
+        return new SecretClient(vaultUrl, this._servicePrincipalAuthenticator.getKeyVaultCredentials());
+    }
+
+    _getCertificateClient(vaultUrl){
+        return new CertificateClient(vaultUrl, this._servicePrincipalAuthenticator.getKeyVaultCredentials());
     }
 
     _prettyPrintJson(obj) {
