@@ -6,8 +6,6 @@
 'use strict;'
 
 const KeyVaultSampleBase = require('./key_vault_sample_base');
-const { SecretClient } = require("@azure/keyvault-secrets");
-
 
 const RETRY_404_WAIT_SEC = 3;
 const DELETE_RECOVER_RETRY_COUNT = 15;
@@ -26,10 +24,6 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
 
         await self._authenticate();
         await self._precreateVaults();
-
-        var recoveryVaultUri = self.secretsRecoveryVault.properties.vaultUri;
-        self.secretClient = new SecretClient(recoveryVaultUri, self.credential);
-
         await self.deletedVaultRecovery();
         await self.deletedSecretRecovery();
         await self._cleanupSampleVaults();
@@ -261,6 +255,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
         var secretToRecover = self._getName("secret");
         var secretToPurge = self._getName("secret");
 
+        self.secretClient = self._getSecretClient(self.secretsRecoveryVault.properties.vaultUri);
         var secret = await self.secretClient.setSecret(secretToRecover, 'secret to restore');
         console.log('Created secret: ' + self._prettyPrintJson(secret));
 
