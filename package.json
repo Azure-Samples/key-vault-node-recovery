@@ -19,10 +19,14 @@
   "author": "Microsoft Corporation",
   "license": "MIT",
   "dependencies": {
+    "@azure/identity": "^1.0.3",
+    "@azure/keyvault-certificates": "^4.0.2",
+    "@azure/keyvault-keys": "^4.0.4",
+    "@azure/keyvault-secrets": "^4.0.4",
     "adal-node": "^0.1.27",
     "azure-arm-keyvault": "^1.1.2",
     "azure-arm-resource": "^3.1.1-preview",
-    "azure-keyvault": "^3.0.4",
+    "dotenv": "^8.2.0",
     "ms-rest-azure": "^2.5.0"
   },
   "homepage": "https://github.com/Azure-Samples/key-vault-node-recovery",
