@@ -24,6 +24,7 @@ This sample repo includes sample code demonstrating the soft delete, recovery an
 1. If you don't have it, install [node.js](https://nodejs.org)
 2. Set the following environment variables using the information from your service principal.
    ```
+   export AZURE_RESOURCE_GROUP={your resource group name}
    export AZURE_SUBSCRIPTION_ID={your subscription id}
    export AZURE_CLIENT_ID={your client id}
    export AZURE_CLIENT_SECRET={your client secret}

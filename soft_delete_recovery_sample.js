@@ -57,16 +57,6 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
         return await self.listAllPages( () => self.KeyVaultManagementClient.vaults.listDeleted(), nextLink => self.KeyVaultManagementClient.vaults.listDeletedNext(nextLink));
     }
 
-    async listSecrets(vaultUri) {
-        var self = this;
-        return await self.listAllPages( () => self.KeyVaultClient.getSecrets(vaultUri), nextLink => self.KeyVaultClient.getSecretsNext(nextLink) );
-    }
-
-    async listDeletedSecrets(vaultUri) {
-        var self = this;
-        return await self.listAllPages( () => self.KeyVaultClient.getDeletedSecrets(vaultUri), nextLink => self.KeyVaultClient.getDeletedSecretsNext(nextLink) );
-    }
-
     async pollWhile404(retryCount, promiseGenerator) {
         var self = this;
 
@@ -105,18 +95,19 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
             () => self.KeyVaultManagementClient.vaults.getDeleted(vaultName, vaultLocation));
     }
 
-    async deleteSecret(vaultUri, secretName) {
+    async deleteSecret(secretName) {
         var self = this;
         return self.performOpAndWaitForCompletion(
-            () => self.KeyVaultClient.deleteSecret(vaultUri, secretName),
-            () => self.KeyVaultClient.getDeletedSecret(vaultUri, secretName));
+            async() => {const poller = await self.secretClient.beginDeleteSecret(secretName);
+                await poller.pollUntilDone();},
+            () => self.secretClient.getDeletedSecret(secretName));
     }
 
-    async recoverDeletedSecret(vaultUri, secretName) {
+    async recoverDeletedSecret(secretName) {
         var self = this;
         return self.performOpAndWaitForCompletion(
-            () => self.KeyVaultClient.recoverDeletedSecret(vaultUri, secretName),
-            () => self.KeyVaultClient.getSecret(vaultUri, secretName, '')
+            () => self.secretClient.recoverDeletedSecret(secretName),
+            () => self.secretClient.getSecret(secretName)
         );
     }
 
@@ -264,36 +255,45 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
         var secretToRecover = self._getName("secret");
         var secretToPurge = self._getName("secret");
 
-        var recoveryVaultUri = self.secretsRecoveryVault.properties.vaultUri;
-
-        var secret = await self.KeyVaultClient.setSecret(recoveryVaultUri, secretToRecover, 'secret to restore');
+        self.secretClient = self._getSecretClient(self.secretsRecoveryVault.properties.vaultUri);
+        var secret = await self.secretClient.setSecret(secretToRecover, 'secret to restore');
         console.log('Created secret: ' + self._prettyPrintJson(secret));
 
-        secret = await self.KeyVaultClient.setSecret(recoveryVaultUri, secretToPurge, 'secret to purge');
+        secret = await self.secretClient.setSecret(secretToPurge, 'secret to purge');
         console.log('Created secret: ' + self._prettyPrintJson(secret));
 
         // List secrets
-        var secretsList = await self.listSecrets(recoveryVaultUri);
+        var secretsList = [];
+        for await (let secretProperties of self.secretClient.listPropertiesOfSecrets()) {
+            secretsList.push(secretProperties);
+        }
         console.log('Secrets: ' + self._prettyPrintJson(secretsList));
 
         var deletionPromises = [];
-        deletionPromises.push(self.deleteSecret(recoveryVaultUri, secretToRecover));
-        deletionPromises.push(self.deleteSecret(recoveryVaultUri, secretToPurge));
+        deletionPromises.push(self.deleteSecret(secretToRecover));
+        deletionPromises.push(self.deleteSecret(secretToPurge));
         var deletionResults = await Promise.all(deletionPromises);
         console.log('Data: ' + self._prettyPrintJson(deletionResults, null, 2));
 
         console.log('Deleted ' + secretToRecover + ' and ' + secretToPurge);
 
-        secretsList = await self.listDeletedSecrets(recoveryVaultUri);
-        console.log('Deleted Secrets: ' + self._prettyPrintJson(secretsList));
+        var deletedSecretList = [];
+        for await (let deletedSecret  of self.secretClient.listDeletedSecrets()) {
+            deletedSecretList.push(deletedSecret);
+        }
+        console.log('Deleted Secrets: ' + self._prettyPrintJson(deletedSecretList));
 
-        await self.recoverDeletedSecret(recoveryVaultUri, secretToRecover);
+        const recoverPoller = await self.secretClient.beginRecoverDeletedSecret(secretToRecover);
+        await recoverPoller.pollUntilDone();
         console.log('Recovered ' + secretToRecover);
 
-        await self.KeyVaultClient.purgeDeletedSecret(recoveryVaultUri, secretToPurge);
+        await self.secretClient.purgeDeletedSecret(secretToPurge);
         console.log('Purged ' + secretToPurge);
 
-        secretsList = await self.listSecrets(recoveryVaultUri);
+        var secretsList = [];
+        for await (let secretProperties of self.secretClient.listPropertiesOfSecrets()) {
+            secretsList.push(secretProperties);
+        }
         console.log('Remaining secrets: ' + self._prettyPrintJson(secretsList));
     }
 

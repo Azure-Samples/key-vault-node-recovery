@@ -5,12 +5,18 @@
 // --------------------------------------------------------------------------
 
 'use strict;'
-
+const dotenv = require("dotenv");
+dotenv.config();
 const util = require('util');
 const msRestAzure = require('ms-rest-azure');
 const ResourceManagementClient = require('azure-arm-resource').ResourceManagementClient;
 const KeyVaultManagementClient = require('azure-arm-keyvault');
-const KeyVault = require('azure-keyvault');
+const { DefaultAzureCredential } = require('@azure/identity');
+const { KeyClient } = require('@azure/keyvault-keys');
+const { SecretClient } = require('@azure/keyvault-secrets');
+const { CertificateClient } = require('@azure/keyvault-certificates');
+
+
 const AuthenticationContext = require('adal-node').AuthenticationContext;
 
 // Validate env variables
@@ -35,6 +41,7 @@ class ServicePrincipalAuthenticator {
         this._tenantId = tenantId;
         this._clientId = clientId;
         this._clientSecret = clientSecret;
+        this._credentials = null;
     }
 
     /**
@@ -43,33 +50,12 @@ class ServicePrincipalAuthenticator {
      * @param {object}   challenge      Authentication parameters provided by Key Vault.
      * @param {function} callback       Callback function on completion.
      */
-    getKeyVaultCredentials() {
-        var credentials = new KeyVault.KeyVaultCredentials( (challenge, callback) => {
-            var self = this;
-            if (!self._authContext) {
-                self._authContext = new AuthenticationContext(challenge.authorization);
-            }
-
-                // Use the context to acquire an authentication token.
-            self._authContext.acquireTokenWithClientCredentials(
-                challenge.resource,
-                self._clientId,
-                self._clientSecret,
-                (err, tokenResponse) => {
-                    if (err) {
-                        callback(err);
-                        return;
-                    }
-
-                    // Calculate the value to be set in the request's Authorization header and resume the call.
-                    var authorizationValue = tokenResponse.tokenType + ' ' + tokenResponse.accessToken;
-
-                    callback(null, authorizationValue);
-                }
-            );
-        });
-
-        return credentials;
+    getKeyVaultCredentials(){
+        var self = this;
+        if(!self._credentials){
+            self._credentials = new DefaultAzureCredential();
+        }
+        return self._credentials;
     }
 }
 
@@ -136,10 +122,21 @@ class KeyVaultSampleBase {
                 self.KeyVaultManagementClient = new KeyVaultManagementClient(credentials, this._config.subscriptionId);
 
                 // Service principal auth.
-                var kvCredentials = self._servicePrincipalAuthenticator.getKeyVaultCredentials();
-                self.KeyVaultClient = new KeyVault.KeyVaultClient(kvCredentials);
+                self._servicePrincipalAuthenticator.getKeyVaultCredentials();
             }
         );
+    }
+
+    _getKeyClient(vaultUrl){
+        return new KeyClient(vaultUrl, this._servicePrincipalAuthenticator._credentials);
+    }
+
+    _getSecretClient(vaultUrl){
+        return new SecretClient(vaultUrl, this._servicePrincipalAuthenticator._credentials);
+    }
+
+    _getCertificateClient(vaultUrl){
+        return new CertificateClient(vaultUrl, this._servicePrincipalAuthenticator._credentials);
     }
 
     _prettyPrintJson(obj) {
