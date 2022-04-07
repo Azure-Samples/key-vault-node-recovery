@@ -8,16 +8,12 @@
 const dotenv = require("dotenv");
 dotenv.config();
 const util = require('util');
-const msRestAzure = require('ms-rest-azure');
-const ResourceManagementClient = require('azure-arm-resource').ResourceManagementClient;
-const KeyVaultManagementClient = require('azure-arm-keyvault');
+const {ResourceManagementClient} = require('@azure/arm-resources')
+const { KeyVaultManagementClient} = require("@azure/arm-keyvault")
 const { DefaultAzureCredential } = require('@azure/identity');
 const { KeyClient } = require('@azure/keyvault-keys');
 const { SecretClient } = require('@azure/keyvault-secrets');
 const { CertificateClient } = require('@azure/keyvault-certificates');
-
-
-const AuthenticationContext = require('adal-node').AuthenticationContext;
 
 // Validate env variables
 var envs = [];
@@ -116,15 +112,13 @@ class KeyVaultSampleBase {
 
     _authenticate() {
         var self = this;
-        return msRestAzure.loginWithServicePrincipalSecret(this._config.clientId, this._config.secret, this._config.tenantId).then(
-            (credentials) => {
-                self.ResourceManagementClient = new ResourceManagementClient(credentials, this._config.subscriptionId);
-                self.KeyVaultManagementClient = new KeyVaultManagementClient(credentials, this._config.subscriptionId);
+        const credentials = new DefaultAzureCredential();
+        self.ResourceManagementClient = new ResourceManagementClient(credentials, this._config.subscriptionId);
+        self.KeyVaultManagementClient = new KeyVaultManagementClient(credentials, this._config.subscriptionId);
 
-                // Service principal auth.
-                self._servicePrincipalAuthenticator.getKeyVaultCredentials();
-            }
-        );
+        // Service principal auth.
+        self._servicePrincipalAuthenticator.getKeyVaultCredentials();
+        
     }
 
     _getKeyClient(vaultUrl){
@@ -155,6 +149,7 @@ class KeyVaultSampleBase {
             location: this._config.azureLocation,
             properties: {
                 sku: {
+                    family:'A',
                     name: 'standard'
                 },
                 accessPolicies: [
@@ -175,7 +170,7 @@ class KeyVaultSampleBase {
         };
 
         console.log('\nCreating key vault: ' + vaultName);
-        return self.KeyVaultManagementClient.vaults.createOrUpdate(this._config.groupName, vaultName, keyVaultParameters);
+        return self.KeyVaultManagementClient.vaults.beginCreateOrUpdateAndWait(this._config.groupName, vaultName, keyVaultParameters);
     }
 }
 
