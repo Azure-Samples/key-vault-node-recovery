@@ -8,8 +8,8 @@
 const dotenv = require("dotenv");
 dotenv.config();
 const util = require('util');
-const {ResourceManagementClient} = require('@azure/arm-resources')
-const { KeyVaultManagementClient} = require("@azure/arm-keyvault")
+const { ResourceManagementClient } = require('@azure/arm-resources')
+const { KeyVaultManagementClient } = require("@azure/arm-keyvault")
 const { DefaultAzureCredential } = require('@azure/identity');
 const { KeyClient } = require('@azure/keyvault-keys');
 const { SecretClient } = require('@azure/keyvault-secrets');
