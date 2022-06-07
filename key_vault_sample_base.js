@@ -10,7 +10,7 @@ dotenv.config();
 const util = require('util');
 const { ResourceManagementClient } = require('@azure/arm-resources')
 const { KeyVaultManagementClient } = require("@azure/arm-keyvault")
-const { DefaultAzureCredential, ClientSecretCredential } = require('@azure/identity');
+const { DefaultAzureCredential } = require('@azure/identity');
 const { KeyClient } = require('@azure/keyvault-keys');
 const { SecretClient } = require('@azure/keyvault-secrets');
 const { CertificateClient } = require('@azure/keyvault-certificates');
@@ -112,7 +112,7 @@ class KeyVaultSampleBase {
 
     _authenticate() {
         var self = this;
-        const credentials = new ClientSecretCredential(this._config.tenantId,this._config.clientId,this._config.secret);
+        const credentials = new DefaultAzureCredential();
         self.ResourceManagementClient = new ResourceManagementClient(credentials, this._config.subscriptionId);
         self.KeyVaultManagementClient = new KeyVaultManagementClient(credentials, this._config.subscriptionId);
 
