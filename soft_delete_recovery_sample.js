@@ -49,12 +49,20 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
 
     async listVaults() {
         var self = this;
-        return await self.listAllPages( () => self.KeyVaultManagementClient.vaults.list(), nextLink => self.KeyVaultManagementClient.vaults.listNext(nextLink) );
+        const vaults = []
+        for await (let vault of self.KeyVaultManagementClient.vaults.list()){
+            vaults.push(vault)
+        }
+        return vaults;
     }
 
     async listDeletedVaults() {
         var self = this;
-        return await self.listAllPages( () => self.KeyVaultManagementClient.vaults.listDeleted(), nextLink => self.KeyVaultManagementClient.vaults.listDeletedNext(nextLink));
+        const deletedVaults = []
+        for await (let vault of self.KeyVaultManagementClient.vaults.listDeleted()){
+            deletedVaults.push(vault)
+        }
+        return deletedVaults;
     }
 
     async pollWhile404(retryCount, promiseGenerator) {
@@ -91,7 +99,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
         var vaultLocation = vault.location;
         
         return self.performOpAndWaitForCompletion(
-            () => self.KeyVaultManagementClient.vaults.deleteMethod(resourceGroup, vaultName),
+            () => self.KeyVaultManagementClient.vaults.delete(resourceGroup, vaultName),
             () => self.KeyVaultManagementClient.vaults.getDeleted(vaultName, vaultLocation));
     }
 
@@ -113,7 +121,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
 
     async purgeVault(deletedVault) {
         var self = this;
-        return self.KeyVaultManagementClient.vaults.purgeDeleted(deletedVault.name, deletedVault.properties.location);
+        return self.KeyVaultManagementClient.vaults.beginPurgeDeletedAndWait(deletedVault.name, deletedVault.properties.location);
     }
 
     async recoverVault(deletedVault, resourceGroup, tenantId) {
@@ -129,6 +137,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
                 createMode: 'recover',
                 tenantId: tenantId,
                 sku: {
+                    family:'A',
                     name: 'standard'
                 },
                 accessPolicies: []
@@ -136,7 +145,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
         };
 
         console.log('Recovering vault ' + deletedVault.name);
-        var recoveredVault = await self.KeyVaultManagementClient.vaults.createOrUpdate(resourceGroup, deletedVault.name, recoveryParameters);
+        var recoveredVault = await self.KeyVaultManagementClient.vaults.beginCreateOrUpdateAndWait(resourceGroup, deletedVault.name, recoveryParameters);
         console.log('Recovered vault ' + recoveredVault.name);
     }
 
@@ -153,6 +162,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
             location: self._config.azureLocation,
             properties: {
                 sku: {
+                    family:'A',
                     name: 'standard'
                 },
                 accessPolicies: [
@@ -179,7 +189,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
 
 
         console.log('\nCreating soft delete enabled vault: ' + vaultName);
-        var vault = await self.KeyVaultManagementClient.vaults.createOrUpdate(self._config.groupName, vaultName, keyVaultParameters);
+        var vault = await self.KeyVaultManagementClient.vaults.beginCreateOrUpdateAndWait(self._config.groupName, vaultName, keyVaultParameters);
         console.log('Vault ' + vaultName + ' created enableSoftDelete=' + vault.properties.enableSoftDelete);
         return vault;
     }
@@ -195,7 +205,7 @@ class SoftDeleteRecoverySample extends KeyVaultSampleBase {
         // NOTE: This value should only be undefined or true, setting the value to false will cause a service validation error
         //       once soft delete has been enabled on the vault it cannot be disabled
         sampleVault.properties.enableSoftDelete = true
-        await self.KeyVaultManagementClient.vaults.createOrUpdate(self._config.groupName, sampleVault.name, sampleVault.properties);
+        await self.KeyVaultManagementClient.vaults.beginCreateOrUpdateAndWait(self._config.groupName, sampleVault.name, sampleVault.properties);
         console.log('Updated vault ' + sampleVault.name + ' enableSoftDelete=' + sampleVault.properties.enableSoftDelete);
     }
 
