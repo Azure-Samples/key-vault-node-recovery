@@ -22,9 +22,9 @@
     "@azure/arm-keyvault": "^2.0.0",
     "@azure/arm-resources": "^5.0.0",
     "@azure/identity": "^2.0.4",
-    "@azure/keyvault-certificates": "^4.4.0",
-    "@azure/keyvault-keys": "^4.4.0",
-    "@azure/keyvault-secrets": "^4.4.0",
+    "@azure/keyvault-certificates": "^4.7.0",
+    "@azure/keyvault-keys": "^4.7.0",
+    "@azure/keyvault-secrets": "^4.7.0",
     "dotenv": "^8.2.0"
   },
   "homepage": "https://github.com/Azure-Samples/key-vault-node-recovery",
